@@ -48,16 +48,29 @@ async def analyze_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         data = response.json()
-        messages = data.get("data", data) if isinstance(data, dict) else data
+
+        # Логуємо що прийшло для діагностики
+        logging.info(f"Chatterfy response: {str(data)[:500]}")
+
+        # Витягуємо список повідомлень з різних форматів
+        if isinstance(data, list):
+            messages = data
+        elif isinstance(data, dict):
+            messages = data.get("data") or data.get("messages") or data.get("items") or []
+        else:
+            messages = []
 
         if not messages:
-            await update.message.reply_text("❌ Переписка порожня або Chat ID невірний.")
+            await update.message.reply_text(f"❌ Переписка порожня.\nВідповідь API: {str(data)[:200]}")
             return
 
         conversation = []
         for msg in messages:
-            role = "Клієнт" if msg.get("from_user") or msg.get("role") == "user" else "Менеджер/Бот"
-            text = msg.get("text") or msg.get("content") or msg.get("message") or ""
+            if isinstance(msg, str):
+                conversation.append(msg)
+                continue
+            role = "Клієнт" if msg.get("from_user") or msg.get("role") == "user" or msg.get("type") == "incoming" else "Менеджер/Бот"
+            text = msg.get("text") or msg.get("content") or msg.get("message") or msg.get("body") or ""
             if text:
                 conversation.append(f"{role}: {text}")
 
